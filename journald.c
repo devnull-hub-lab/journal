@@ -8,6 +8,7 @@
 #include <arpa/inet.h>
 #include <time.h>
 #include <sqlite3.h>
+#include <pwd.h>
 
 #define PORT 2628
 #define MAX_BUFFER_SIZE 1024
@@ -19,6 +20,27 @@ typedef struct {
 } ClientData;
 
 int main() {
+    
+    struct passwd *pwd;
+    const char *username = "journal";
+    short uid_journal = -1;
+
+    pwd = getpwnam(username);
+    if (pwd == NULL) {
+        fprintf(stderr, "Failed to get user information\n");
+        return 1;
+    }
+
+    uid_journal = pwd->pw_uid;
+
+    endpwent(); //free pwd
+
+    // Set the effective user ID to the desired user
+    if (setuid(uid_journal) == -1) {
+        perror("setuid");
+        return 1;
+    }
+
     int sockfd, newsockfd;
     socklen_t clientLength;
     char buffer[MAX_BUFFER_SIZE];
