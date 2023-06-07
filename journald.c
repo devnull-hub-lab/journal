@@ -5,9 +5,18 @@
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
+#include <arpa/inet.h>
+#include <time.h>
+#include <sqlite3.h>
 
 #define PORT 2628
 #define MAX_BUFFER_SIZE 1024
+#define TIME_LIMIT 5
+#define DB_NAME "client_data.db"
+
+typedef struct {
+    time_t lastConnectionTime;
+} ClientData;
 
 int main() {
     int sockfd, newsockfd;
@@ -18,7 +27,14 @@ int main() {
 
     sockfd = socket(AF_INET, SOCK_STREAM, 0);
     if (sockfd < 0) {
-        perror("Error on open socket");
+        perror("Error opening socket");
+        exit(1);
+    }
+
+    // SO_REUSEADDR option to reuse the address if it in use, Linux problems
+    int reuse = 1;
+    if (setsockopt(sockfd, SOL_SOCKET, SO_REUSEADDR, &reuse, sizeof(reuse)) < 0) {
+        perror("Error setting socket option");
         exit(1);
     }
 
@@ -28,29 +44,83 @@ int main() {
     serv_addr.sin_addr.s_addr = INADDR_ANY;
 
     if (bind(sockfd, (struct sockaddr *) &serv_addr, sizeof(serv_addr)) < 0) {
-        perror("Error to bind socket");
+        perror("Error binding socket");
         exit(1);
     }
 
     if (listen(sockfd, 5) < 0) {
-        perror("Error on listennig");
+        perror("Error listening");
         exit(1);
     }
 
     printf("Daemon started...\n");
 
-    //Every con
+    // SQLite3 database initialization
+    sqlite3 *db;
+    if (sqlite3_open(DB_NAME, &db) != SQLITE_OK) {
+        perror("Error opening database");
+        exit(1);
+    }
+
+    // Create the clients table if it doesn't exist
+    char *createTableQuery = "CREATE TABLE IF NOT EXISTS clients (ip TEXT PRIMARY KEY, last_connection INTEGER)";
+    if (sqlite3_exec(db, createTableQuery, NULL, 0, NULL) != SQLITE_OK) {
+        perror("Error creating table");
+        exit(1);
+    }
+
     while (1) {
         clientLength = sizeof(cli_addr);
         newsockfd = accept(sockfd, (struct sockaddr *) &cli_addr, &clientLength);
         if (newsockfd < 0) {
-            perror("Error on receiving connection");
+            perror("Error on accepting connection");
             exit(1);
+        }
+
+        // Get the client IP address as a string
+        char clientIP[INET_ADDRSTRLEN];
+        inet_ntop(AF_INET, &(cli_addr.sin_addr), clientIP, INET_ADDRSTRLEN);
+
+        // Get the current time
+        time_t currentTime = time(NULL);
+
+        // Check if the client is allowed to connect based on the last connection time
+        int isAllowed = 1;
+
+        // SQLite3 query
+        sqlite3_stmt *selectStmt;
+        char *selectQuery = "SELECT last_connection FROM clients WHERE ip = ?";
+        if (sqlite3_prepare_v2(db, selectQuery, -1, &selectStmt, NULL) == SQLITE_OK) {
+            sqlite3_bind_text(selectStmt, 1, clientIP, -1, SQLITE_STATIC);
+            if (sqlite3_step(selectStmt) == SQLITE_ROW) {
+                time_t lastConnectionTime = sqlite3_column_int(selectStmt, 0);
+                if (currentTime - lastConnectionTime < TIME_LIMIT) {
+                    isAllowed = 0;
+                }
+            }
+            sqlite3_finalize(selectStmt);
+        }
+
+        //Log in server terminal
+        if (!isAllowed) {
+            printf("Connection from %s refused (Time limit: %d seconds)\n", clientIP, TIME_LIMIT);
+            close(newsockfd);
+            continue;
+        }
+
+        // Update the last connection time
+        sqlite3_stmt *updateStmt;
+        char *updateQuery = "INSERT OR REPLACE INTO clients (ip, last_connection) VALUES (?, ?)";
+        if (sqlite3_prepare_v2(db, updateQuery, -1, &updateStmt, NULL) == SQLITE_OK) {
+            sqlite3_bind_text(updateStmt, 1, clientIP, -1, SQLITE_STATIC);
+            sqlite3_bind_int(updateStmt, 2, currentTime);
+            sqlite3_step(updateStmt);
+            sqlite3_finalize(updateStmt);
         }
 
         memset(buffer, 0, sizeof(buffer));
         if (read(newsockfd, buffer, sizeof(buffer) - 1) < 0) {
-            perror("Error on reading buffer client");
+            perror("Error reading client buffer");
             exit(1);
         }
 
@@ -62,11 +132,10 @@ int main() {
 
         file = fopen(path, "r");
         if (file == NULL) {
-            perror("Error on reading .journal user file");
+            perror("Error reading user .journal file");
             exit(1);
         }
 
-        //sending buffer to client
         memset(buffer, 0, sizeof(buffer));
         char fileContent[MAX_BUFFER_SIZE];
         while (fgets(fileContent, sizeof(fileContent), file) != NULL) {
@@ -75,10 +144,15 @@ int main() {
         write(newsockfd, buffer, strlen(buffer));
 
         fclose(file);
+
         close(newsockfd);
     }
-    //close main socket
+
+    // Close the main socket
     close(sockfd);
+
+    // Close the SQLite3 database
+    sqlite3_close(db);
 
     return 0;
 }
