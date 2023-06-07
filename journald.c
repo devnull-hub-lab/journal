@@ -35,7 +35,7 @@ int main() {
 
     endpwent(); //free pwd
 
-    // Set the effective user ID to the desired user
+    // Set the effective user ID to the desired user (journal), so init system can manage the daemon start/stop
     if (setuid(uid_journal) == -1) {
         perror("setuid");
         return 1;
