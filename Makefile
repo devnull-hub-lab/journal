@@ -26,8 +26,10 @@ install:
 		exit 1; \
 	fi
 
-	@useradd -m journal
-	@usermod -s /sbin/nologin journal
+	@id -u journal >/dev/null 2>&1 || useradd -m journal
+	@grep -q "journal:/sbin/nologin" /etc/passwd || usermod -s /sbin/nologin journal
+	@mkdir -p /var/db/journald/
+	@chown journal:journal /var/db/journald/
 	install -m 755 $(TARGET) $(INSTALL_DIR)
 
 # Clean generated files
