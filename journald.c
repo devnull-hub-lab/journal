@@ -13,7 +13,7 @@
 #define PORT 2628
 #define MAX_BUFFER_SIZE 1024
 #define TIME_LIMIT 5
-#define DB_NAME "client_data.db"
+#define DB_PATH "/var/db/client_data.db"
 
 typedef struct {
     time_t lastConnectionTime;
@@ -79,7 +79,7 @@ int main() {
 
     // SQLite3 database initialization
     sqlite3 *db;
-    if (sqlite3_open(DB_NAME, &db) != SQLITE_OK) {
+    if (sqlite3_open(DB_PATH, &db) != SQLITE_OK) {
         perror("Error opening database");
         exit(1);
     }
