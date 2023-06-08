@@ -13,7 +13,7 @@
 #define PORT 2628
 #define MAX_BUFFER_SIZE 1024
 #define TIME_LIMIT 5
-#define DB_PATH "/var/db/client_data.db"
+#define DB_PATH "/var/db/journald/client_data.db"
 
 typedef struct {
     time_t lastConnectionTime;
