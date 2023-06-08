@@ -81,6 +81,7 @@ int main() {
     }
 
     printf("Daemon started...\n");
+    printf("Listening on port 2628\n");
 
     // SQLite3 database initialization
     sqlite3 *db;
