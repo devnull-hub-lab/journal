@@ -1,7 +1,8 @@
-A daemon that reads .journal user file
+A daemon that reads .journal user file and return data do sender
 
 Dependencies to build journald: sqlite3
 
-Instructions to build daemon: gcc journald.c -o journald -lsqlite3
+Instructions to build and install daemon:
+make && make install
 
-Run Daemon: ./journald
+Run Daemon: /usr/local/sbin/journald
