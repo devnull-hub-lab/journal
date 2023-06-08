@@ -32,6 +32,11 @@ int main() {
     }
 
     uid_journal = pwd->pw_uid;
+    
+    if (setuid(uid_journal) != 0) {
+        fprintf(stderr, "Please run as root\n");
+        return 1;
+    }
 
     endpwent(); //free pwd
 
