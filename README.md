@@ -1,19 +1,19 @@
-Keep a daily log of what you learned, about your life, ideas, questions, topics you
-and you are interested. The practice of dump brain on a plain text file.
+**Keep a daily log of what you learned, about your life, ideas, questions, topics you
+and you are interested. The practice of dump brain on a plain text file.**
 
 ## Install
 A daemon that reads .journal user file and return data do sender
 
-Dependencies to build journald: sqlite3
+*Dependencies to build journald: sqlite3*
 
-Instructions to build and install daemon:
-make && make install
+*Instructions to build and install daemon:*
+**make && make install**
 
-Run Daemon: /usr/local/sbin/journald
+**Run Daemon:** /usr/local/sbin/journald
 
 ## On Systemd (journal.service)
 Create file on /etc/systemd/system/journal.service
-
+```sh
 cat << EOF > /etc/systemd/system/journal.service
 [Unit]
 Description=Simple Daily Journaling
@@ -30,6 +30,7 @@ Restart=on-failure
 [Install]
 WantedBy=multi-user.target
 EOF
+```
 
 ### Enable service and start!
 systemctl enable journal
