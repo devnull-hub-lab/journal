@@ -164,12 +164,13 @@ int main() {
             exit(1);
         }
 
-        memset(buffer, 0, sizeof(buffer));
-        char fileContent[MAX_BUFFER_SIZE];
-        while (fgets(fileContent, sizeof(fileContent), file) != NULL) {
-            strcat(buffer, fileContent);
+        // Read the file contents and send them to the client
+        while (fgets(buffer, sizeof(buffer), file) != NULL) {
+            if (write(newsockfd, buffer, strlen(buffer)) < 0) {
+                perror("Error writing to client socket");
+                exit(1);
+            }
         }
-        write(newsockfd, buffer, strlen(buffer));
 
         fclose(file);
 
