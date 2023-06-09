@@ -1,20 +1,24 @@
 **Keep a daily log of what you learned, about your life, ideas, questions, topics you
 and you are interested. The practice of dump brain on a plain text file.**
 
+## About
+A daemon that reads .journal user file and return data to client.
+A tool that includes your journal in (obviously) .journal
+
 ## Install
-A daemon that reads .journal user file and return data do sender
 
 *Dependencies to build journald: **sqlite3***
 
-*Instructions to build and install daemon:*
+*Instructions to build and install daemon and tool:*
 ```
 make
 make install
 ```
 
 **Run Daemon:** /usr/local/sbin/journald
+**Run Tool:** /usr/local/bin/journaladd
 
-## On Systemd (journal.service)
+## Install Daemon on Systemd Init System (journal.service)
 Create file on /etc/systemd/system/journal.service
 ```sh
 cat << EOF > /etc/systemd/system/journal.service
