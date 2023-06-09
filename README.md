@@ -2,8 +2,10 @@
 and you are interested. The practice of dump brain on a plain text file.**
 
 ## About
-A daemon that reads .journal user file and return data to client.
-A tool that includes your journal in (obviously) .journal
+Includes:
+
+- A daemon that reads .journal user file and return data to client.
+- A tool that includes your journal into (obviously) .journal file
 
 ## Install
 
@@ -16,6 +18,7 @@ make install
 ```
 
 **Run Daemon:** /usr/local/sbin/journald
+
 **Run Tool:** /usr/local/bin/journaladd
 
 ## Install Daemon on Systemd Init System (journal.service)
