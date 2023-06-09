@@ -160,8 +160,12 @@ int main() {
 
         file = fopen(path, "r");
         if (file == NULL) {
-            perror("Error reading user .journal file");
-            exit(1);
+            // Send error message to the client
+            char errorMessage[MAX_BUFFER_SIZE];
+            snprintf(errorMessage, sizeof(errorMessage), "Journal not found for %s@%s", user, host);
+            write(newsockfd, errorMessage, strlen(errorMessage));
+            close(newsockfd);
+            continue;
         }
 
         // Read the file contents and send them to the client
