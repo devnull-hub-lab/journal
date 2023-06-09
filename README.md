@@ -4,10 +4,13 @@ and you are interested. The practice of dump brain on a plain text file.**
 ## Install
 A daemon that reads .journal user file and return data do sender
 
-*Dependencies to build journald: sqlite3*
+*Dependencies to build journald: **sqlite3***
 
 *Instructions to build and install daemon:*
-**make && make install**
+```
+make
+make install
+```
 
 **Run Daemon:** /usr/local/sbin/journald
 
@@ -22,7 +25,6 @@ After=network.target
 [Service]
 Type=simple
 User=journal
-WorkingDirectory=/usr/local/sbin/
 ExecStart=/usr/local/sbin/journald
 ExecReload=/bin/kill -HUP $MAINPID
 Restart=on-failure
@@ -33,6 +35,7 @@ EOF
 ```
 
 ### Enable service and start!
+```sh
 systemctl enable journal
 systemctl start journal
-
+```
