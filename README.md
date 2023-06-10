@@ -5,13 +5,13 @@ and you are interested. The practice of dump brain on a plain text file.**
 Includes:
 
 - A daemon that reads .journal user file and return data to client.
-- A tool that includes your journal into (obviously) .journal file
+- A tool that manage your journal file.
 
 ## Install
 
-*Dependencies to build journald: **sqlite3***
+*Dependencies to build: **sqlite3***
 
-*Instructions to build and install daemon and tool:*
+*Instructions to build and install:*
 ```
 make
 make install
@@ -19,7 +19,7 @@ make install
 
 **Run Daemon:** /usr/local/sbin/journald
 
-**Run Tool:** /usr/local/bin/journaladd
+**Run Tool:** /usr/local/bin/journal
 
 ## Install Daemon on Systemd Init System (journal.service)
 Create file on /etc/systemd/system/journal.service
