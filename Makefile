@@ -7,23 +7,23 @@ LDFLAGS := -lsqlite3
 
 # Source code files
 SOURCE_JOURNALD := journald.c
-SOURCE_JOURNALADD := journaladd.c
+SOURCE_JOURNALCLI := journal-cli.c
 
 # Executable files
 TARGET_JOURNALD := journald
-TARGET_JOURNALADD := journaladd
+TARGET_JOURNALCLI := journal
 
 INSTALL_DIR_JOURNALD := /usr/local/sbin
-INSTALL_DIR_JOURNALADD := /usr/local/bin
+INSTALL_DIR_JOURNALCLI := /usr/local/bin
 
 # Default target
-all: $(TARGET_JOURNALD) $(TARGET_JOURNALADD)
+all: $(TARGET_JOURNALD) $(TARGET_JOURNALCLI)
 
 # Build the targets
 $(TARGET_JOURNALD): $(SOURCE_JOURNALD)
 	$(CC) $^ -o $@ $(CFLAGS) $(LDFLAGS)
 
-$(TARGET_JOURNALADD): $(SOURCE_JOURNALADD)
+$(TARGET_JOURNALCLI): $(SOURCE_JOURNALCLI)
 	$(CC) $^ -o $@ $(CFLAGS) $(LDFLAGS)
 
 install:
@@ -37,9 +37,9 @@ install:
 	@mkdir -p /var/db/journald/
 	@chown journal:journal /var/db/journald/
 	install -m 755 $(TARGET_JOURNALD) $(INSTALL_DIR_JOURNALD)
-	install -m 755 $(TARGET_JOURNALADD) $(INSTALL_DIR_JOURNALADD)
+	install -m 755 $(TARGET_JOURNALCLI) $(INSTALL_DIR_JOURNALCLI)
 
 # Clean generated files
 clean:
-	rm -f $(TARGET_JOURNALD) $(TARGET_JOURNALADD)
+	rm -f $(TARGET_JOURNALD) $(TARGET_JOURNALCLI)
 	
