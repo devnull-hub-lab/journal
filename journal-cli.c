@@ -6,7 +6,22 @@
 
 #define MAX_BUFFER_SIZE 1024
 
-int main() {
+void printUsage(char *programName) {
+    printf("\nJournal Commmands Help\n\n");
+    printf("%s add", programName);
+    printf(" - to add a new journal entry\n");
+}
+
+int main(int argc, char *argv[]) {
+
+    if (argc == 2 && strcmp(argv[1], "--help") == 0) {
+        printUsage(argv[0]);
+        return 0;
+    } else if (argc != 2 || strcmp(argv[1], "add") != 0) {
+        fprintf(stderr, "Invalid Command. Check --help to see the command list.\n");
+        exit(1);
+    }
+
     char user[MAX_BUFFER_SIZE];
     snprintf(user, sizeof(user), "%s", getenv("USER"));
 
