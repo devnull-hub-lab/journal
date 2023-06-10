@@ -21,7 +21,7 @@ int main() {
         exit(1);
     }
 
-    char *createTableSQL = "CREATE TABLE IF NOT EXISTS tbentries (seq INTEGER, subseq INTEGER, entry TEXT, PRIMARY KEY (seq, subseq));";
+    char *createTableSQL = "CREATE TABLE IF NOT EXISTS tbentries (seq INTEGER, subseq INTEGER, entry TEXT, entry_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP, PRIMARY KEY (seq, subseq));";
     rc = sqlite3_exec(db, createTableSQL, NULL, 0, NULL);
     if (rc != SQLITE_OK) {
         fprintf(stderr, "SQL error: %s\n", sqlite3_errmsg(db));
@@ -57,7 +57,7 @@ int main() {
     int subseq = 1; // each line in a subseq from a inclusion
 
     while (fgets(buffer, sizeof(buffer), stdin) != NULL) {
-        char *insertSQL = sqlite3_mprintf("INSERT INTO tbentries (seq, subseq, entry) VALUES (%d, %d, '%q');", seq, subseq, buffer);
+        char *insertSQL = sqlite3_mprintf("INSERT INTO tbentries (seq, subseq, entry, entry_date) VALUES (%d, %d, '%q', '%q');", seq, subseq, buffer, dateTime);
         rc = sqlite3_exec(db, insertSQL, NULL, 0, NULL);
         sqlite3_free(insertSQL);
 
@@ -66,6 +66,7 @@ int main() {
             sqlite3_close(db);
             exit(1);
         }
+
         subseq++;
     }
 
