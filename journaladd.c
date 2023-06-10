@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
+#include <sqlite3.h>
 
 #define MAX_BUFFER_SIZE 1024
 
@@ -9,39 +10,66 @@ int main() {
     char user[MAX_BUFFER_SIZE];
     snprintf(user, sizeof(user), "%s", getenv("USER"));
 
-    char journalPath[MAX_BUFFER_SIZE];
-    snprintf(journalPath, sizeof(journalPath), "/home/%s/.journal", user);
+    char dbPath[MAX_BUFFER_SIZE];
+    snprintf(dbPath, sizeof(dbPath), "/home/%s/.journal.db", user);
 
-    FILE *file = fopen(journalPath, "a");
-    if (file == NULL) {
-        perror("Error opening journal file");
+    sqlite3 *db;
+    int rc = sqlite3_open(dbPath, &db);
+    if (rc != SQLITE_OK) {
+        fprintf(stderr, "Cannot open database: %s\n", sqlite3_errmsg(db));
+        sqlite3_close(db);
         exit(1);
     }
 
-    fprintf(file, "###############\n");
-
-    // Get current date/time
-    time_t currentTime = time(NULL);
-    struct tm *localTime = localtime(&currentTime);
-
-    // Format Date
-    char date[MAX_BUFFER_SIZE];
-    strftime(date, sizeof(date), "%m/%d/%Y", localTime);
-    fprintf(file, "%s\n", date);
-
-    // Formata Time
-    char time[MAX_BUFFER_SIZE];
-    strftime(time, sizeof(time), "%H:%M", localTime);
-    fprintf(file, "%s\n", time);
-
-    printf("Enter your journal entry (Press Ctrl+D to save and exit):\n");
-
-    char buffer[MAX_BUFFER_SIZE];
-    while (fgets(buffer, sizeof(buffer), stdin) != NULL) {
-        fprintf(file, "%s", buffer);
+    char *createTableSQL = "CREATE TABLE IF NOT EXISTS tbentries (seq INTEGER, subseq INTEGER, entry TEXT, PRIMARY KEY (seq, subseq));";
+    rc = sqlite3_exec(db, createTableSQL, NULL, 0, NULL);
+    if (rc != SQLITE_OK) {
+        fprintf(stderr, "SQL error: %s\n", sqlite3_errmsg(db));
+        sqlite3_close(db);
+        exit(1);
     }
 
-    fclose(file);
+    char *selectSeqSQL = "SELECT MAX(seq) FROM tbentries;";
+    sqlite3_stmt *stmt;
+    rc = sqlite3_prepare_v2(db, selectSeqSQL, -1, &stmt, NULL);
+    if (rc != SQLITE_OK) {
+        fprintf(stderr, "SQL error: %s\n", sqlite3_errmsg(db));
+        sqlite3_close(db);
+        exit(1);
+    }
+
+    int seq = 0;
+    if (sqlite3_step(stmt) == SQLITE_ROW) {
+        seq = sqlite3_column_int(stmt, 0);
+    }
+    sqlite3_finalize(stmt);
+
+    seq++;
+
+    printf("Enter your journal entry (Press <return> and Ctrl+D to save and exit):\n");
+
+    char buffer[MAX_BUFFER_SIZE];
+    time_t currentTime = time(NULL);
+    struct tm *timeInfo = localtime(&currentTime);
+    char dateTime[MAX_BUFFER_SIZE];
+    strftime(dateTime, sizeof(dateTime), "%Y-%m-%d %H:%M:%S", timeInfo);
+
+    int subseq = 1; // each line in a subseq from a inclusion
+
+    while (fgets(buffer, sizeof(buffer), stdin) != NULL) {
+        char *insertSQL = sqlite3_mprintf("INSERT INTO tbentries (seq, subseq, entry) VALUES (%d, %d, '%q');", seq, subseq, buffer);
+        rc = sqlite3_exec(db, insertSQL, NULL, 0, NULL);
+        sqlite3_free(insertSQL);
+
+        if (rc != SQLITE_OK) {
+            fprintf(stderr, "SQL error: %s\n", sqlite3_errmsg(db));
+            sqlite3_close(db);
+            exit(1);
+        }
+        subseq++;
+    }
+
+    sqlite3_close(db);
 
     printf("Text added to the journal.\n");
 
