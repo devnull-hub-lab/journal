@@ -167,11 +167,20 @@ int main() {
             exit(1);
         }
 
-        selectQuery = "SELECT entry FROM tbentries;";
+        selectQuery = "SELECT entry_date, entry FROM tbentries;";
         if (sqlite3_prepare_v2(db_journal, selectQuery, -1, &selectStmt, NULL) == SQLITE_OK) {
             while (sqlite3_step(selectStmt) == SQLITE_ROW) {
-                const unsigned char *entry = sqlite3_column_text(selectStmt, 0);
-                if (write(newsockfd, entry, strlen((char *)entry)) < 0) {
+                const unsigned char *entry_date = sqlite3_column_text(selectStmt, 0);
+                const unsigned char *entry = sqlite3_column_text(selectStmt, 1);
+
+                // Format string with:
+                // ###############
+                // <date> <time>
+                // Entry Data
+                char entry_data[MAX_BUFFER_SIZE];
+                snprintf(entry_data, sizeof(entry_data), "###############\n%s\n%s\n", entry_date, entry);
+
+                if (write(newsockfd, entry_data, strlen(entry_data)) < 0) {
                     perror("Error writing to client socket");
                     exit(1);
                 }
