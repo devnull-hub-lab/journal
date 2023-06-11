@@ -13,14 +13,15 @@
 #define PORT 2628
 #define MAX_BUFFER_SIZE 1024
 #define TIME_LIMIT 5
-#define DB_PATH "/var/db/journald/client_data.db"
+#define DB_CLIENTS_PATH "/var/db/journald/client_data.db"
+#define DB_JOURNAL_PATH "/home/%s/.journal.db"
 
 typedef struct {
     time_t lastConnectionTime;
 } ClientData;
 
 int main() {
-    
+
     struct passwd *pwd;
     const char *username = "journal";
     short uid_journal = -1;
@@ -32,13 +33,13 @@ int main() {
     }
 
     uid_journal = pwd->pw_uid;
-    
+
     if (setuid(uid_journal) != 0) {
         fprintf(stderr, "Please run as root\n");
         return 1;
     }
 
-    endpwent(); //free pwd
+    endpwent(); // Free pwd
 
     // Set the effective user ID to the desired user (journal), so init system can manage the daemon start/stop
     if (setuid(uid_journal) == -1) {
@@ -50,7 +51,6 @@ int main() {
     socklen_t clientLength;
     char buffer[MAX_BUFFER_SIZE];
     struct sockaddr_in serv_addr, cli_addr;
-    FILE *file;
 
     sockfd = socket(AF_INET, SOCK_STREAM, 0);
     if (sockfd < 0) {
@@ -58,7 +58,7 @@ int main() {
         exit(1);
     }
 
-    // SO_REUSEADDR option to reuse the address if it in use, Linux problems
+    // SO_REUSEADDR option to reuse the address if it's in use
     int reuse = 1;
     if (setsockopt(sockfd, SOL_SOCKET, SO_REUSEADDR, &reuse, sizeof(reuse)) < 0) {
         perror("Error setting socket option");
@@ -83,16 +83,16 @@ int main() {
     printf("Daemon started...\n");
     printf("Listening on port 2628\n");
 
-    // SQLite3 database initialization
-    sqlite3 *db;
-    if (sqlite3_open(DB_PATH, &db) != SQLITE_OK) {
+    // SQLite3 clients database initialization
+    sqlite3 *db_clients;
+    if (sqlite3_open(DB_CLIENTS_PATH, &db_clients) != SQLITE_OK) {
         perror("Error opening database");
         exit(1);
     }
 
     // Create the clients table if it doesn't exist
     char *createTableQuery = "CREATE TABLE IF NOT EXISTS clients (ip TEXT PRIMARY KEY, last_connection INTEGER)";
-    if (sqlite3_exec(db, createTableQuery, NULL, 0, NULL) != SQLITE_OK) {
+    if (sqlite3_exec(db_clients, createTableQuery, NULL, 0, NULL) != SQLITE_OK) {
         perror("Error creating table");
         exit(1);
     }
@@ -101,7 +101,7 @@ int main() {
         clientLength = sizeof(cli_addr);
         newsockfd = accept(sockfd, (struct sockaddr *) &cli_addr, &clientLength);
         if (newsockfd < 0) {
-            perror("Error on accepting connection");
+            perror("Error accepting connection");
             exit(1);
         }
 
@@ -118,7 +118,7 @@ int main() {
         // SQLite3 query
         sqlite3_stmt *selectStmt;
         char *selectQuery = "SELECT last_connection FROM clients WHERE ip = ?";
-        if (sqlite3_prepare_v2(db, selectQuery, -1, &selectStmt, NULL) == SQLITE_OK) {
+        if (sqlite3_prepare_v2(db_clients, selectQuery, -1, &selectStmt, NULL) == SQLITE_OK) {
             sqlite3_bind_text(selectStmt, 1, clientIP, -1, SQLITE_STATIC);
             if (sqlite3_step(selectStmt) == SQLITE_ROW) {
                 time_t lastConnectionTime = sqlite3_column_int(selectStmt, 0);
@@ -129,7 +129,7 @@ int main() {
             sqlite3_finalize(selectStmt);
         }
 
-        //Log in server terminal
+        // Log in server terminal
         if (!isAllowed) {
             printf("Connection from %s refused (Time limit: %d seconds)\n", clientIP, TIME_LIMIT);
             close(newsockfd);
@@ -139,7 +139,7 @@ int main() {
         // Update the last connection time
         sqlite3_stmt *updateStmt;
         char *updateQuery = "INSERT OR REPLACE INTO clients (ip, last_connection) VALUES (?, ?)";
-        if (sqlite3_prepare_v2(db, updateQuery, -1, &updateStmt, NULL) == SQLITE_OK) {
+        if (sqlite3_prepare_v2(db_clients, updateQuery, -1, &updateStmt, NULL) == SQLITE_OK) {
             sqlite3_bind_text(updateStmt, 1, clientIP, -1, SQLITE_STATIC);
             sqlite3_bind_int(updateStmt, 2, currentTime);
             sqlite3_step(updateStmt);
@@ -155,28 +155,31 @@ int main() {
         char user[MAX_BUFFER_SIZE], host[MAX_BUFFER_SIZE];
         sscanf(buffer, "%[^@]@%s", user, host);
 
-        char path[MAX_BUFFER_SIZE];
-        snprintf(path, sizeof(path), "/home/%s/.journal", user);
+        char journal_path[MAX_BUFFER_SIZE];
+        snprintf(journal_path, sizeof(journal_path), DB_JOURNAL_PATH, user);
 
-        file = fopen(path, "r");
-        if (file == NULL) {
-            // Send error message to the client
+        sqlite3 *db_journal;
+        if (sqlite3_open(journal_path, &db_journal) != SQLITE_OK) {
             char errorMessage[MAX_BUFFER_SIZE];
             snprintf(errorMessage, sizeof(errorMessage), "Journal not found for %s@%s", user, host);
             write(newsockfd, errorMessage, strlen(errorMessage));
             close(newsockfd);
-            continue;
+            exit(1);
         }
 
-        // Read the file contents and send them to the client
-        while (fgets(buffer, sizeof(buffer), file) != NULL) {
-            if (write(newsockfd, buffer, strlen(buffer)) < 0) {
-                perror("Error writing to client socket");
-                exit(1);
+        selectQuery = "SELECT entry FROM tbentries;";
+        if (sqlite3_prepare_v2(db_journal, selectQuery, -1, &selectStmt, NULL) == SQLITE_OK) {
+            while (sqlite3_step(selectStmt) == SQLITE_ROW) {
+                const unsigned char *entry = sqlite3_column_text(selectStmt, 0);
+                if (write(newsockfd, entry, strlen((char *)entry)) < 0) {
+                    perror("Error writing to client socket");
+                    exit(1);
+                }
             }
         }
 
-        fclose(file);
+        sqlite3_finalize(selectStmt);
+        sqlite3_close(db_journal);
 
         close(newsockfd);
     }
@@ -185,7 +188,6 @@ int main() {
     close(sockfd);
 
     // Close the SQLite3 database
-    sqlite3_close(db);
-
+    sqlite3_close(db_clients);
     return 0;
 }
