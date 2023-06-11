@@ -164,7 +164,7 @@ int main() {
             snprintf(errorMessage, sizeof(errorMessage), "Journal not found for %s@%s", user, host);
             write(newsockfd, errorMessage, strlen(errorMessage));
             close(newsockfd);
-            exit(1);
+            continue;
         }
 
         int seqOld = 0;
