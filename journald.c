@@ -167,18 +167,27 @@ int main() {
             exit(1);
         }
 
-        selectQuery = "SELECT entry_date, entry FROM tbentries;";
+        int seqOld = 0;
+        selectQuery = "SELECT seq, subseq, entry_date, entry FROM tbentries;";
         if (sqlite3_prepare_v2(db_journal, selectQuery, -1, &selectStmt, NULL) == SQLITE_OK) {
             while (sqlite3_step(selectStmt) == SQLITE_ROW) {
-                const unsigned char *entry_date = sqlite3_column_text(selectStmt, 0);
-                const unsigned char *entry = sqlite3_column_text(selectStmt, 1);
+                int seq    = sqlite3_column_int(selectStmt, 0);
+                int subseq = sqlite3_column_int(selectStmt, 1);
+                const unsigned char *entry_date = sqlite3_column_text(selectStmt, 2);
+                const unsigned char *entry      = sqlite3_column_text(selectStmt, 3);
 
                 // Format string with:
                 // ###############
                 // <date> <time>
                 // Entry Data
                 char entry_data[MAX_BUFFER_SIZE];
-                snprintf(entry_data, sizeof(entry_data), "###############\n%s\n%s\n", entry_date, entry);
+                
+                if (seq != seqOld) {
+                    snprintf(entry_data, sizeof(entry_data), "###############\n%s\n\n%s", entry_date, entry);
+                    seqOld = seq;
+                }
+                else
+                    snprintf(entry_data, sizeof(entry_data), "%s", entry);
 
                 if (write(newsockfd, entry_data, strlen(entry_data)) < 0) {
                     perror("Error writing to client socket");
