@@ -152,8 +152,19 @@ int main() {
             exit(1);
         }
 
-        char user[MAX_BUFFER_SIZE], host[MAX_BUFFER_SIZE];
-        sscanf(buffer, "%[^@]@%s", user, host);
+        char user[MAX_BUFFER_SIZE], flags[MAX_BUFFER_SIZE];
+        sscanf(buffer, "%[^@]@%s", user, flags);
+
+        short flag_r = 0, flag_n = 0;
+        //r - reverse order
+        //n - journal numbers
+        char *flag_ptr = strstr(flags, "r");
+        if (flag_ptr != NULL)
+            flag_r = 1;
+        
+        flag_ptr = strstr(flags, "n");
+        if (flag_ptr != NULL)
+            flag_n = 1;
 
         char journal_path[MAX_BUFFER_SIZE];
         snprintf(journal_path, sizeof(journal_path), DB_JOURNAL_PATH, user);
@@ -161,14 +172,19 @@ int main() {
         sqlite3 *db_journal;
         if (sqlite3_open(journal_path, &db_journal) != SQLITE_OK) {
             char errorMessage[MAX_BUFFER_SIZE];
-            snprintf(errorMessage, sizeof(errorMessage), "Journal not found for %s@%s", user, host);
+            snprintf(errorMessage, sizeof(errorMessage), "Journal not found for %s", user);
             write(newsockfd, errorMessage, strlen(errorMessage));
             close(newsockfd);
             continue;
         }
 
         int seqOld = 0;
-        selectQuery = "SELECT seq, subseq, entry_date, entry FROM tbentries;";
+
+        if (flag_r) //reverse order
+            selectQuery = "SELECT seq, subseq, entry_date, entry FROM tbentries ORDER BY seq DESC;";
+        else
+            selectQuery = "SELECT seq, subseq, entry_date, entry FROM tbentries;";
+
         if (sqlite3_prepare_v2(db_journal, selectQuery, -1, &selectStmt, NULL) == SQLITE_OK) {
             while (sqlite3_step(selectStmt) == SQLITE_ROW) {
                 int seq    = sqlite3_column_int(selectStmt, 0);
