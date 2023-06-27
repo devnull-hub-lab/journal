@@ -83,6 +83,13 @@ int main() {
     printf("Daemon started...\n");
     printf("Listening on port 2628\n");
 
+    char selectFullQuery[MAX_BUFFER_SIZE];
+    char updateFullQuery[MAX_BUFFER_SIZE];
+    char sqlSelect[MAX_BUFFER_SIZE];
+    char sqlFrom[MAX_BUFFER_SIZE];
+    char sqlWhere[MAX_BUFFER_SIZE];
+    char sqlOrderBy[MAX_BUFFER_SIZE];
+
     // SQLite3 clients database initialization
     sqlite3 *db_clients;
     if (sqlite3_open(DB_CLIENTS_PATH, &db_clients) != SQLITE_OK) {
@@ -117,8 +124,8 @@ int main() {
 
         // SQLite3 query
         sqlite3_stmt *selectStmt;
-        char *selectQuery = "SELECT last_connection FROM clients WHERE ip = ?";
-        if (sqlite3_prepare_v2(db_clients, selectQuery, -1, &selectStmt, NULL) == SQLITE_OK) {
+        strcpy(selectFullQuery, "SELECT last_connection FROM clients WHERE ip = ?");
+        if (sqlite3_prepare_v2(db_clients, selectFullQuery, -1, &selectStmt, NULL) == SQLITE_OK) {
             sqlite3_bind_text(selectStmt, 1, clientIP, -1, SQLITE_STATIC);
             if (sqlite3_step(selectStmt) == SQLITE_ROW) {
                 time_t lastConnectionTime = sqlite3_column_int(selectStmt, 0);
@@ -138,8 +145,8 @@ int main() {
 
         // Update the last connection time
         sqlite3_stmt *updateStmt;
-        char *updateQuery = "INSERT OR REPLACE INTO clients (ip, last_connection) VALUES (?, ?)";
-        if (sqlite3_prepare_v2(db_clients, updateQuery, -1, &updateStmt, NULL) == SQLITE_OK) {
+        strcpy(updateFullQuery, "INSERT OR REPLACE INTO clients (ip, last_connection) VALUES (?, ?)");
+        if (sqlite3_prepare_v2(db_clients, updateFullQuery, -1, &updateStmt, NULL) == SQLITE_OK) {
             sqlite3_bind_text(updateStmt, 1, clientIP, -1, SQLITE_STATIC);
             sqlite3_bind_int(updateStmt, 2, currentTime);
             sqlite3_step(updateStmt);
@@ -152,19 +159,23 @@ int main() {
             exit(1);
         }
 
+        short flag_r = 0, flag_n = 0;
+        int flag_n_num = 0; //unlimited (if not specified)
+        // r - reverse order
+        // n - journal entry numbers
+
         char user[MAX_BUFFER_SIZE], flags[MAX_BUFFER_SIZE];
         sscanf(buffer, "%[^@]@%s", user, flags);
 
-        short flag_r = 0, flag_n = 0;
-        //r - reverse order
-        //n - journal numbers
         char *flag_ptr = strstr(flags, "r");
         if (flag_ptr != NULL)
             flag_r = 1;
         
         flag_ptr = strstr(flags, "n");
-        if (flag_ptr != NULL)
+        if (flag_ptr != NULL) {
             flag_n = 1;
+            sscanf(flag_ptr + 1, "%d", &flag_n_num);
+        }
 
         char journal_path[MAX_BUFFER_SIZE];
         snprintf(journal_path, sizeof(journal_path), DB_JOURNAL_PATH, user);
@@ -178,14 +189,22 @@ int main() {
             continue;
         }
 
+        strcpy(sqlSelect,  "SELECT seq, subseq, entry_date, entry ");
+        strcpy(sqlFrom,    "FROM tbentries ");
+        strcpy(sqlWhere,   " ");
+        strcpy(sqlOrderBy, "ORDER BY seq ASC, subseq ASC;");
+
         int seqOld = 0;
 
         if (flag_r) //reverse order
-            selectQuery = "SELECT seq, subseq, entry_date, entry FROM tbentries ORDER BY seq DESC;";
-        else
-            selectQuery = "SELECT seq, subseq, entry_date, entry FROM tbentries;";
+            strcpy(sqlOrderBy, "ORDER BY seq DESC, subseq ASC;");
 
-        if (sqlite3_prepare_v2(db_journal, selectQuery, -1, &selectStmt, NULL) == SQLITE_OK) {
+        if (flag_n) //number journal entries
+            snprintf(sqlWhere, sizeof(sqlWhere), "WHERE seq IN (SELECT DISTINCT seq FROM tbentries ORDER BY seq LIMIT %d)", flag_n_num);
+
+        snprintf(selectFullQuery, sizeof(selectFullQuery), "%s%s%s%s", sqlSelect, sqlFrom, sqlWhere, sqlOrderBy);
+        
+        if (sqlite3_prepare_v2(db_journal, selectFullQuery, -1, &selectStmt, NULL) == SQLITE_OK) {
             while (sqlite3_step(selectStmt) == SQLITE_ROW) {
                 int seq    = sqlite3_column_int(selectStmt, 0);
                 int subseq = sqlite3_column_int(selectStmt, 1);
