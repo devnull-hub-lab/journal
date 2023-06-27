@@ -6,11 +6,11 @@ CFLAGS := -Wall -Wextra -I/usr/include/sqlite3
 LDFLAGS := -lsqlite3
 
 # Source code files
-SOURCE_JOURNALD := journald.c
+SOURCE_JOURNALD := journal-daemon.c
 SOURCE_JOURNALCLI := journal-cli.c
 
 # Executable files
-TARGET_JOURNALD := journald
+TARGET_JOURNALD := journal-daemon
 TARGET_JOURNALCLI := journal
 
 INSTALL_DIR_JOURNALD := /usr/local/sbin
